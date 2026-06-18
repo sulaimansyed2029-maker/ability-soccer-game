@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sleek Soccer PVP</title>
+    <style>
+        body { font-family: monospace; background: #121212; color: #fff; text-align: center; margin: 0; overflow: hidden; }
+        #wrapper { width: 800px; height: 500px; margin: 20px auto; position: relative; border: 3px solid #333; background: #1a1a1a; border-radius: 12px; overflow: hidden; }
+        #menu { position: absolute; inset: 0; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; transition: opacity 0.5s; }
+        #menu.hide { opacity: 0; pointer-events: none; }
+        h1 { color: #00ff00; margin: 0; }
+        .btn { background: #1a1a1a; color: #00ff00; border: 2px solid #00ff00; padding: 10px 25px; cursor: pointer; margin: 8px; font-weight: bold; border-radius: 4px; }
+        .btn:hover { background: #00ff00; color: #000; }
+        #canvas { background: #16261c; display: block; }
+        #ui { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-around; font-size: 1.2em; font-weight: bold; pointer-events: none; }
+        .guide { font-size: 0.75em; color: #aaa; background: #161616; padding: 10px; border-radius: 6px; margin-top: 15px; text-align: left; }
+    </style>
+</head>
+<body>
+<div id="wrapper">
+    <div id="menu">
+        <h1>⚔️ ABILITY SOCCER PVP ⚔️</h1>
+        <p style="color:#888;margin:5px 0 20px 0;">Real Person vs Real Person Arena</p>
+        <button class="btn" onclick="start()">START PVP MATCH</button>
+        <button class="btn" style="color:#39f;border-color:#39f;" onclick="toggleM()">🎵 TOGGLE SONG</button>
+        <div class="guide">
+            <span style="color:#f33">P1 (Red): WASD</span> | F=Dash, G=Blast<br>
+            <span style="color:#39f">P2 (Blue): Arrows</span> | K=Teleport, L=Magnet
+        </div>
+    </div>
+    <div id="ui">
+        <div style="color:#f33">P1: <span id="s1">0</span></div>
+        <div id="status" style="color:#888">FIRST TO 3</div>
+        <div style="color:#39f">P2: <span id="s2">0</span></div>
+    </div>
+    <canvas id="canvas" width="800" height="500"></canvas>
+</div>
+<audio id="bg" loop src="https://soundhelix.com"></audio>
+<audio id="kick" src="https://google.com"></audio>
+<audio id="goal" src="https://google.com"></audio>
+<script>
+    const cvs = document.getElementById("canvas"), ctx = cvs.getContext("2d");
+    let run = false, score = { p1: 0, p2: 0 }, keys = {};
+    const bg = document.getElementById("bg"), kick = document.getElementById("kick"), goal = document.getElementById("goal");
+    let p1 = { x: 150, y: 250, r: 22, s: 4, b: 4, c: "#ff3333" };
+    let p2 = { x: 650, y: 250, r: 22, s: 4, b: 4, c: "#3399ff" };
+    let b = { x: 400, y: 250, vx: 0, vy: 0, r: 11 };
+    const gW = 8, gH = 160, gY = 170;
+
+    window.addEventListener("keydown", e => { keys[e.key] = true; if(run) action(e.key); });
+    window.addEventListener("keyup", e => keys[e.key] = false);
+    function toggleM() { if (bg.paused) bg.play().catch(()=>{}); else bg.pause(); }
+    function start() { document.getElementById("menu").classList.add("hide"); run = true; reset(); bg.play().catch(()=>{}); gameLoop(); }
+    function reset() { p1.x = 150; p1.y = 250; p1.s = p1.b; p2.x = 650; p2.y = 250; p2.s = p2.b; b.x = 400; b.y = 250; b.vx = 0; b.vy = 0; }
+    
+    function action(k) {
+        let key = k.toLowerCase();
+        if (key === 'f') { p1.s = 7.5; setTimeout(() => p1.s = p1.b, 800); }
+        if (key === 'g' && Math.hypot(b.x - p1.x, b.y - p1.y) < 65) { b.vx *= 2.3; b.vy *= 2.3; kick.cloneNode(true).play().catch(()=>{}); }
+        if (key === 'k') p2.x -= 90;
+        if (key === 'l') { b.vx += (p2.x - b.x) * 0.12; b.vy += (p2.y - b.y) * 0.12; }
+    }
+
+    function update() {
+        if (keys['w'] || keys['W']) p1.y -= p1.s; if (keys['s'] || keys['S']) p1.y += p1.s;
+        if (keys['a'] || keys['A']) p1.x -= p1.s; if (keys['d'] || keys['D']) p1.x += p1.s;
+        if (keys['ArrowUp']) p2.y -= p2.s; if (keys['ArrowDown']) p2.y += p2.s;
+        if (keys['ArrowLeft']) p2.x -= p2.s; if (keys['ArrowRight']) p2.x += p2.s;
+
+        [p1, p2].forEach(p => {
+            p.x = Math.max(p.r, Math.min(cvs.width - p.r, p.x));
+            p.y = Math.max(p.r, Math.min(cvs.height - p.r, p.y));
+        });
+
+        b.x += b.vx; b.y += b.vy; b.vx *= 0.98; b.vy *= 0.98;
+        if (b.y - b.r < 0) { b.vy = -b.vy; b.y = b.r; }
+        if (b.y + b.r > cvs.height) { b.vy = -b.vy; b.y = cvs.height - b.r; }
+
+        [p1, p2].forEach(p => {
+            let dx = b.x - p.x, dy = b.y - p.y;
+            if (Math.hypot(dx, dy) < p.r + b.r) {
+                let a = Math.atan2(dy, dx);
+                b.vx = Math.cos(a) * 6.5; b.vy = Math.sin(a) * 6.5;
+                kick.cloneNode(true).play().catch(()=>{});
+            }
+        });
+
+        if (b.x - b.r <= 0) {
+            if (b.y > gY && b.y < gY + gH) { score.p2++; document.getElementById("s2").innerText = score.p2; scoreCE(); }
+            else { b.vx = -b.vx; b.x = b.r; }
+        }
+        if (b.x + b.r >= cvs.width) {
+            if (b.y > gY && b.y < gY + gH) { score.p1++; document.getElementById("s1").innerText = score.p1; scoreCE(); }
+            else { b.vx = -b.vx; b.x = cvs.width - b.r; }
+        }
+    }
+
+    function scoreCE() {
+        goal.cloneNode(true).play().catch(()=>{});
+        if (score.p1 >= 3 || score.p2 >= 3) {
+            run = false;
+            document.getElementById("status").innerText = score.p1 >= 3 ? "P1 WINS!" : "P2 WINS!";
+            setTimeout(() => location.reload(), 2500);
+        } else reset();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        ctx.strokeStyle = "rgba(0, 255, 0, 0.15)"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(cvs.width / 2, 0); ctx.lineTo(cvs.width / 2, cvs.height); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cvs.width / 2, cvs.height / 2, 75, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#222"; ctx.fillRect(0, gY, gW, gH); ctx.fillRect(cvs.width - gW, gY, gW, gH);
+        
+        [p1, p2].forEach(p => {
+            ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        });
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function gameLoop() { if (!run) return; update(); draw(); requestAnimationFrame(gameLoop); }
+</script>
+</body>
+</html>
